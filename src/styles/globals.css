@@ -25,3 +25,12 @@ body {
     text-wrap: balance;
   }
 }
+.skiptranslate {
+  display: none !important;
+}
+.goog-te-banner-frame {
+  display: none !important;
+}
+body {
+  top: 0 !important;
+}

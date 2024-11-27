@@ -21,6 +21,9 @@ import SchoolSizeDistribution from '@/components/GPSnapshot/Education/SchoolSize
 import FacilityDistribution from '@/components/GPSnapshot/Health/FacilityDistribution';
 import FacilityStatus from '@/components/GPSnapshot/Health/FacilityStatus';
 import StatisticsOverview from '@/components/GPSnapshot/StatisticsOverview';
+import VulnerabilityOverview from '../components/GPSnapshot/Vulnerability/VulnerabilityOverview';
+import VulnerabilityDistribution from '../components/GPSnapshot/Vulnerability/VulnerabilityDistribution';
+import VulnerabilityStatistics from '@/components/GPSnapshot/Vulnerability/VulnerabilityStatistics';
 
 const NavButton = styled(Button)(({ theme, active }: { theme: any, active: boolean }) => ({
   color: 'white',
@@ -67,6 +70,7 @@ const GPSnapshot: React.FC = () => {
   const [educationData, setEducationData] = useState<any>(null);
   const [healthData, setHealthData] = useState<any>(null);
   const router = useRouter();
+  const [vulnerabilityData, setVulnerabilityData] = useState<any>(null);
 
   useEffect(() => {
     const auth = getAuth(app);
@@ -250,7 +254,8 @@ const GPSnapshot: React.FC = () => {
             <Box>
               <NavButton active={true} sx={{ mr: 1 }}>Social</NavButton>
               <NavButton onClick={() => router.push('/gp-snapshot/economic')} sx={{ mr: 1 }}>Economic</NavButton>
-              <NavButton onClick={() => router.push('/gp-snapshot/environmental')}>Environmental</NavButton>
+              <NavButton onClick={() => router.push('/gp-snapshot/environmental')} sx={{ mr: 1 }}>Environmental</NavButton>
+              <NavButton onClick={() => router.push('/gp-snapshot/vulnerabilities')}>Vulnerabilities</NavButton>
             </Box>
             <VillageSelector>
               <Typography variant="subtitle1" fontWeight="medium">

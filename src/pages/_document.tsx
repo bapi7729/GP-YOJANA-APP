@@ -2,6 +2,7 @@ import React from 'react';
 import Document, { Html, Head, Main, NextScript, DocumentProps, DocumentContext } from 'next/document';
 import createEmotionServer from '@emotion/server/create-instance';
 import createEmotionCache from '../utils/createEmotionCache';
+import Script from 'next/script';
 
 class MyDocument extends Document<DocumentProps> {
   render() {
@@ -14,38 +15,28 @@ class MyDocument extends Document<DocumentProps> {
           />
         </Head>
         <body>
+          <div id="google_translate_element"></div>
           <Main />
           <NextScript />
+          <Script
+            id="google-translate-config"
+            strategy="beforeInteractive"
+            src="/assets/lang-config.js"
+          />
+          <Script
+            id="google-translate-init"
+            strategy="beforeInteractive"
+            src="/assets/translation.js"
+          />
+          <Script
+            id="google-translate-api"
+            strategy="afterInteractive"
+            src="//translate.google.com/translate_a/element.js?cb=TranslateInit"
+          />
         </body>
       </Html>
     );
   }
 }
-
-MyDocument.getInitialProps = async (ctx: DocumentContext) => {
-  const originalRenderPage = ctx.renderPage;
-  const cache = createEmotionCache();
-  const { extractCriticalToChunks } = createEmotionServer(cache);
-
-  ctx.renderPage = () =>
-    originalRenderPage({
-      enhanceApp: (App: any) => (props) => <App emotionCache={cache} {...props} />,
-    });
-
-  const initialProps = await Document.getInitialProps(ctx);
-  const emotionStyles = extractCriticalToChunks(initialProps.html);
-  const emotionStyleTags = emotionStyles.styles.map((style) => (
-    <style
-      data-emotion={`${style.key} ${style.ids.join(' ')}`}
-      key={style.key}
-      dangerouslySetInnerHTML={{ __html: style.css }}
-    />
-  ));
-
-  return {
-    ...initialProps,
-    styles: [...React.Children.toArray(initialProps.styles), ...emotionStyleTags],
-  };
-};
 
 export default MyDocument;

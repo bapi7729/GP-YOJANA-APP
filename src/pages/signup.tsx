@@ -106,112 +106,110 @@ export default function SignUp() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Layout>
-        <Grid container component="main" className="h-screen">
-          <Grid
-            item
-            xs={false}
-            sm={4}
-            md={7}
-            className="relative hidden sm:block"
-          >
-            <Image
-              src="/images/Login.jpeg"
-              alt="Signup background"
-              layout="fill"
-              objectFit="cover"
-              quality={100}
-            />
-          </Grid>
-          <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
-            <Box
-              className="flex flex-col items-center justify-center h-full px-4 py-12 sm:px-6 lg:px-8"
-            >
-              <div className="max-w-md w-full space-y-8">
-                <div>
-                  <Typography component="h1" variant="h4" className="text-center font-bold text-primary">
-                    Sign Up
-                  </Typography>
-                </div>
-                {isLoading && <LinearProgress className="mb-4" />}
-                <form className="mt-8 space-y-6" onSubmit={handleSignUp}>
-                  <div className="rounded-md shadow-sm space-y-4">
-                    <TextField
-                      required
-                      fullWidth
-                      id="email"
-                      label="Email Address"
-                      name="email"
-                      autoComplete="email"
-                      autoFocus
-                      value={formData.email}
-                      onChange={handleInputChange}
-                    />
-                    <TextField
-                      required
-                      fullWidth
-                      name="password"
-                      label="Password"
-                      type="password"
-                      id="password"
-                      autoComplete="new-password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                    />
-                    <TextField
-                      required
-                      fullWidth
-                      name="confirmPassword"
-                      label="Confirm Password"
-                      type="password"
-                      id="confirmPassword"
-                      autoComplete="new-password"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    className="mt-6"
-                    disabled={isLoading}
-                  >
-                    Sign Up
-                  </Button>
-
-                  <Divider className="my-6">Or</Divider>
-
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<GoogleIcon />}
-                    onClick={handleGoogleSignUp}
-                    disabled={isLoading}
-                  >
-                    Sign up with Google
-                  </Button>
-
-                  {error && (
-                    <Typography color="error" align="center" className="mt-2">
-                      {error}
-                    </Typography>
-                  )}
-
-                  <div className="text-sm text-center mt-4">
-                    <Link href="/login" className="font-medium text-success hover:text-success-dark">
-                      Already have an account? Sign in
-                    </Link>
-                  </div>
-                </form>
-              </div>
-            </Box>
-          </Grid>
+      <Grid container component="main" className="h-screen">
+        <Grid
+          item
+          xs={false}
+          sm={4}
+          md={7}
+          className="relative hidden sm:block"
+        >
+          <Image
+            src="/images/Login.jpeg"
+            alt="Signup background"
+            layout="fill"
+            objectFit="cover"
+            quality={100}
+          />
         </Grid>
-      </Layout>
+        <Grid item xs={12} sm={8} md={5} component={Paper} elevation={6} square>
+          <Box
+            className="flex flex-col items-center justify-center h-full px-4 py-12 sm:px-6 lg:px-8"
+          >
+            <div className="max-w-md w-full space-y-8">
+              <div>
+                <Typography component="h1" variant="h4" className="text-center font-bold text-primary">
+                  Sign Up
+                </Typography>
+              </div>
+              {isLoading && <LinearProgress className="mb-4" />}
+              <form className="mt-8 space-y-6" onSubmit={handleSignUp}>
+                <div className="rounded-md shadow-sm space-y-4">
+                  <TextField
+                    required
+                    fullWidth
+                    id="email"
+                    label="Email Address"
+                    name="email"
+                    autoComplete="email"
+                    autoFocus
+                    value={formData.email}
+                    onChange={handleInputChange}
+                  />
+                  <TextField
+                    required
+                    fullWidth
+                    name="password"
+                    label="Password"
+                    type="password"
+                    id="password"
+                    autoComplete="new-password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                  />
+                  <TextField
+                    required
+                    fullWidth
+                    name="confirmPassword"
+                    label="Confirm Password"
+                    type="password"
+                    id="confirmPassword"
+                    autoComplete="new-password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  className="mt-6"
+                  disabled={isLoading}
+                >
+                  Sign Up
+                </Button>
+
+                <Divider className="my-6">Or</Divider>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<GoogleIcon />}
+                  onClick={handleGoogleSignUp}
+                  disabled={isLoading}
+                >
+                  Sign up with Google
+                </Button>
+
+                {error && (
+                  <Typography color="error" align="center" className="mt-2">
+                    {error}
+                  </Typography>
+                )}
+
+                <div className="text-sm text-center mt-4">
+                  <Link href="/login" className="font-medium text-success hover:text-success-dark">
+                    Already have an account? Sign in
+                  </Link>
+                </div>
+              </form>
+            </div>
+          </Box>
+        </Grid>
+      </Grid>
     </ThemeProvider>
   );
 }
