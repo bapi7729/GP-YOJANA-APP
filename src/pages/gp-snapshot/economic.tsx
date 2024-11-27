@@ -216,7 +216,8 @@ const EconomicSnapshot: React.FC = () => {
             <Box>
               <NavButton onClick={() => router.push('/gp-snapshot')} sx={{ mr: 1 }}>Social</NavButton>
               <NavButton active={true} sx={{ mr: 1 }}>Economic</NavButton>
-              <NavButton onClick={() => router.push('/gp-snapshot/environmental')}>Environmental</NavButton>
+              <NavButton onClick={() => router.push('/gp-snapshot/environmental')} sx={{ mr: 1 }}>Environmental</NavButton>
+              <NavButton onClick={() => router.push('/gp-snapshot/vulnerabilities')}>Vulnerabilities</NavButton>
             </Box>
             <VillageSelector>
               <Typography variant="subtitle1" fontWeight="medium">

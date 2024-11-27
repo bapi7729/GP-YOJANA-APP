@@ -197,8 +197,13 @@ const EnvironmentalSnapshot: React.FC = () => {
               <NavButton 
                 active={selectedVillage === 'Environmental'} 
                 onClick={() => router.push('/gp-snapshot/environmental')}
+                sx={{ mr: 1 }}
               >
                 Environmental
+              </NavButton>
+              <NavButton onClick={() => router.push('/gp-snapshot/vulnerabilities')} 
+              >
+                Vulnerabilities
               </NavButton>
             </Box>
             <VillageSelector>

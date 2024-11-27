@@ -32,6 +32,7 @@ import LandUseMappingDataCollection from '../components/DataCollection/LandUseMa
 import WaterResourcesDataCollection from '../components/DataCollection/WaterResourcesDataCollection';
 import DataReviewAndSubmit from '../components/DataCollection/DataReviewAndSubmit';
 import PastDataCollections from '../components/DataCollection/PastDataCollections';
+import VulnerabilityAssessmentDataCollection from '../components/DataCollection/VulnerabilityAssessmentDataCollection';
 
 const sections = [
   {
@@ -45,6 +46,10 @@ const sections = [
   {
     name: 'Environment',
     subsections: ['Land Use Mapping', 'Water Resources and Irrigation Structures']
+  },
+  {
+    name: 'Vulnerabilities',
+    subsections: ['Vulnerability Assessment']
   }
 ];
 
@@ -89,32 +94,32 @@ const DataCollection: React.FC = () => {
             )
             .map((item: any) => item["Village Name"]);
           setVillages(Array.from(new Set(userVillages)).sort());
+
+          // Fetch and restore past collection data if available
+          const collectionsQuery = query(
+            collection(db, 'dataCollections'),
+            where('userId', '==', user.uid),
+            where('gpName', '==', userData.gpName)
+          );
+          const querySnapshot = await getDocs(collectionsQuery);
+          const collections = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setPastCollections(collections);
+
+          // If we have a financial year selected, restore that data
+          if (financialYear) {
+            const relevantCollection = collections.find(c => c.financialYear === financialYear);
+            if (relevantCollection) {
+              setFormData(relevantCollection.formData);
+            }
+          }
         }
       } else {
         router.push('/login');
       }
     });
 
-    fetchPastCollections();
-
     return () => unsubscribe();
-  }, [router, auth, db]);
-
-  const fetchPastCollections = async () => {
-    if (!auth.currentUser) return;
-    const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-    if (!userDoc.exists()) return;
-
-    const userData = userDoc.data();
-    const collectionsQuery = query(
-      collection(db, 'dataCollections'),
-      where('userId', '==', auth.currentUser.uid),
-      where('gpName', '==', userData.gpName)
-    );
-    const querySnapshot = await getDocs(collectionsQuery);
-    const collections = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setPastCollections(collections);
-  };
+  }, [router, auth, db, financialYear]);
 
   const handleDataChange = (category: string, newData: any) => {
     setFormData(prevData => ({
@@ -230,6 +235,20 @@ const DataCollection: React.FC = () => {
     }
   };
 
+  const handleFinancialYearChange = (year: string) => {
+    setFinancialYear(year);
+    const relevantCollection = pastCollections.find(c => c.financialYear === year);
+    if (relevantCollection) {
+      setFormData(relevantCollection.formData);
+    } else {
+      // Reset form if no past data exists for this year
+      setFormData(sections.reduce((acc, section) => {
+        acc[section.name] = {};
+        return acc;
+      }, {}));
+    }
+  };
+
   if (!userData) {
     return <Box>Loading...</Box>;
   }
@@ -254,8 +273,7 @@ const DataCollection: React.FC = () => {
         return (
           <DataCollectionTable
             villages={villages}
-            category="Demographics"
-            fields={[
+            /**fields={[
               { key: 'households', label: 'Number of Households', type: 'number' },
               { key: 'totalPopulation', label: 'Total Population', type: 'number' },
               { key: 'malePopulation', label: 'Male Population', type: 'number' },
@@ -291,6 +309,7 @@ const DataCollection: React.FC = () => {
                 ]
               },
             ]}
+            **/
             initialData={formData['Demographics']}
             onDataChange={(newData) => handleDataChange('Demographics', newData)}
           />
@@ -356,6 +375,14 @@ const DataCollection: React.FC = () => {
             }
           />
         );
+      case 'Vulnerability Assessment':
+        return (
+          <VulnerabilityAssessmentDataCollection
+            villages={villages}
+            initialData={formData['Vulnerabilities']}
+            onDataChange={(newData) => handleDataChange('Vulnerabilities', newData)}
+          />
+        );
       // Add cases for other subsections
       default:
         return <Typography>Component for {currentSubsection} not implemented yet.</Typography>;
@@ -376,13 +403,13 @@ const DataCollection: React.FC = () => {
           <InputLabel>Financial Year</InputLabel>
           <Select
             value={financialYear}
-            onChange={(e) => setFinancialYear(e.target.value as string)}
+            onChange={(e) => handleFinancialYearChange(e.target.value as string)}
           >
             {Array.from({length: 8}, (_, i) => 2023 + i).map(year => {
               const yearString = `FY ${year}-${year+1}`;
               return (
                 <MenuItem key={year} value={yearString}>
-                  {yearString} {availableYears.includes(yearString) ? '(Saved)' : ''}
+                  {yearString} {pastCollections.some(c => c.financialYear === yearString) ? '(Saved)' : ''}
                 </MenuItem>
               );
             })}
@@ -397,7 +424,6 @@ const DataCollection: React.FC = () => {
               <CustomProgressStepper 
                 sections={sections}
                 activeSection={activeSection}
-                activeSubsection={activeSubsection}
               />
             )}
             <Typography variant="h5" gutterBottom>

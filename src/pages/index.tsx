@@ -9,13 +9,13 @@ import { useLanguage } from '../context/LanguageContext';
 
 // Styled components
 const StyledAppBar = styled(AppBar)({
-  backgroundColor: '#f0f7ff', // Light blue color
+  backgroundColor: '#f0f7ff',
   boxShadow: 'none',
   position: 'relative',
 });
 
 const NavButton = styled(Button)({
-  color: '#1a365d', // Dark navy blue
+  color: '#1a365d',
   textTransform: 'none',
   padding: '8px 16px',
   '&:hover': {
@@ -52,12 +52,18 @@ const DepartmentTitle = styled(Typography)({
   fontWeight: 600,
   fontSize: '1.25rem',
   lineHeight: 1.4,
+  '@media (max-width: 600px)': {
+    fontSize: '1rem',
+  },
 });
 
 const DepartmentSubtitle = styled(Typography)({
   color: '#1a365d',
   fontSize: '0.875rem',
   lineHeight: 1.4,
+  '@media (max-width: 600px)': {
+    fontSize: '0.75rem',
+  },
 });
 
 export default function Home() {
@@ -97,7 +103,7 @@ export default function Home() {
           <Toolbar className="px-0">
             <div className="flex items-center flex-1">
               {/* Logo and Department Name */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap md:flex-nowrap">
                 <Image
                   src="/images/Seal_of_Odisha.png"
                   alt="Seal of Odisha"
@@ -120,32 +126,7 @@ export default function Home() {
                 <Link href="/" passHref legacyBehavior>
                   <NavButton component="a">{t('nav.home')}</NavButton>
                 </Link>
-                <Link href="/about" passHref legacyBehavior>
-                  <NavButton component="a">{t('nav.about')}</NavButton>
-                </Link>
-                <Link href="/programme" passHref legacyBehavior>
-                  <NavButton component="a">{t('nav.programme')}</NavButton>
-                </Link>
-                <Link href="/projects" passHref legacyBehavior>
-                  <NavButton component="a">{t('nav.projects')}</NavButton>
-                </Link>
-
-                {/* Language Toggle */}
-                <LanguageToggle
-                  value={language}
-                  exclusive
-                  onChange={handleLanguageChange}
-                  aria-label="language"
-                  size="small"
-                >
-                  <ToggleButton value="en">
-                    ENG
-                  </ToggleButton>
-                  <ToggleButton value="od">
-                    ଓଡ଼ିଆ
-                  </ToggleButton>
-                </LanguageToggle>
-
+                
                 {/* Auth Buttons */}
                 <div className="flex gap-2">
                   <Link href="/signup" passHref legacyBehavior>
@@ -172,9 +153,9 @@ export default function Home() {
       </StyledAppBar>
 
       {/* Main Content with 70/30 Split */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 flex-col md:flex-row">
         {/* Left side - Image (70%) */}
-        <div className="w-[70%] relative">
+        <div className="w-full md:w-[70%] relative">
           <Image
             src="/images/Cover page.jpg"
             layout="fill"
@@ -187,7 +168,7 @@ export default function Home() {
         </div>
 
         {/* Right side - Content (30%) */}
-        <div className="w-[30%] bg-white p-8 overflow-y-auto">
+        <div className="w-full md:w-[30%] bg-white p-8 overflow-y-auto">
           <div className={`transition-all duration-1000 ease-in-out ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
           }`}>
@@ -216,8 +197,8 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-[#1a365d] text-white py-4">
         <Container maxWidth="xl">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="mb-4 md:mb-0">
               <Typography variant="body2">
                 {t('footer.address.line1')}
               </Typography>
@@ -228,7 +209,7 @@ export default function Home() {
                 {t('footer.address.line3')}
               </Typography>
             </div>
-            <div className="flex gap-8">
+            <div className="flex flex-col md:flex-row gap-8">
               <div>
                 <Typography variant="subtitle2" className="font-bold mb-2">
                   {t('footer.quicklinks')}

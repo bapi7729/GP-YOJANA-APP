@@ -12,18 +12,20 @@ import {
   Divider,
 } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
-import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { app } from '../lib/firebase'; // Update this import to match your firebase config file
+import { getAuth, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from 'firebase/auth';
+import { app } from '../lib/firebase';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const router = useRouter();
 
   const handleEmailPasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
 
     try {
       const auth = getAuth(app);
@@ -37,6 +39,7 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     setError('');
+    setMessage('');
 
     try {
       const auth = getAuth(app);
@@ -46,6 +49,20 @@ const Login: React.FC = () => {
     } catch (error) {
       console.error('Error signing in with Google:', error);
       setError('Failed to sign in with Google. Please try again.');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setMessage('');
+
+    try {
+      const auth = getAuth(app);
+      await sendPasswordResetEmail(auth, email);
+      setMessage('Password reset email sent. Please check your inbox.');
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      setError('Failed to send password reset email. Please try again.');
     }
   };
 
@@ -126,7 +143,17 @@ const Login: React.FC = () => {
                 {error}
               </Typography>
             )}
-            <Grid container justifyContent="flex-end">
+            {message && (
+              <Typography color="primary" align="center" sx={{ mt: 2 }}>
+                {message}
+              </Typography>
+            )}
+            <Grid container justifyContent="space-between">
+              <Grid item>
+                <Link href="#" variant="body2" onClick={handleForgotPassword}>
+                  Forgot password?
+                </Link>
+              </Grid>
               <Grid item>
                 <Link href="/signup" variant="body2">
                   {"Don't have an account? Sign Up"}
@@ -138,6 +165,6 @@ const Login: React.FC = () => {
       </Grid>
     </Grid>
   );
-};
+}
 
 export default Login;
