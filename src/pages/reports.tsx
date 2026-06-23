@@ -97,6 +97,48 @@ const formatIndianCurrency = (amount: number): string => {
   }
 };
 
+// Map each report display section to the possible keys it may be saved under in
+// Firestore. The data-collection page saves sections under short keys
+// (e.g. "HealthChildcare"), while some older data may use the long display name.
+// Resolving both keeps the report in sync with what is actually stored.
+const SECTION_KEYS: { [display: string]: string[] } = {
+  'Demographics': ['Demographics'],
+  'Education': ['Education'],
+  'Health and Childcare': ['Health and Childcare', 'HealthChildcare'],
+  'Migration and Employment': ['Migration and Employment', 'MigrationEmployment'],
+  'Road Infrastructure': ['Road Infrastructure', 'RoadInfrastructure'],
+  'Panchayat Finances': ['Panchayat Finances', 'PanchayatFinances'],
+  'Land Use Mapping': ['Land Use Mapping', 'LandUseMapping'],
+  'Water Resources': ['Water Resources', 'WaterResources'],
+};
+
+// Return the saved data for a display section, checking every known key variant.
+const resolveSection = (formData: any, display: string): any => {
+  if (!formData) return undefined;
+  const keys = SECTION_KEYS[display] || [display];
+  for (const k of keys) {
+    const v = formData[k];
+    if (v !== undefined && v !== null) return v;
+  }
+  return undefined;
+};
+
+// Determine whether a section actually contains meaningful data. Handles arrays
+// (e.g. Migration), village-keyed objects (e.g. Demographics) and flat objects
+// with nested arrays (e.g. Water Resources) or numeric values (e.g. Finances).
+const sectionHasData = (data: any): boolean => {
+  if (data === undefined || data === null) return false;
+  if (Array.isArray(data)) return data.length > 0;
+  if (typeof data === 'object') {
+    return Object.values(data).some(v => {
+      if (Array.isArray(v)) return v.length > 0;
+      if (v && typeof v === 'object') return Object.keys(v).length > 0;
+      return v !== undefined && v !== null && v !== '' && v !== 0;
+    });
+  }
+  return false;
+};
+
 const Reports: React.FC = () => {
   const [userData, setUserData] = useState<any>(null);
   const [selectedYear, setSelectedYear] = useState<string>('');
@@ -230,20 +272,32 @@ const Reports: React.FC = () => {
       const workbook = XLSX.utils.book_new();
       const formData = reportData.formData;
 
+      // Append a worksheet only when there are rows to write. Sheet names are
+      // capped at Excel's 31-character limit.
+      const appendSheet = (rows: any[], name: string) => {
+        if (rows && rows.length > 0) {
+          const sheet = XLSX.utils.json_to_sheet(rows);
+          XLSX.utils.book_append_sheet(workbook, sheet, name.slice(0, 31));
+        }
+      };
+
       // Demographics worksheet
-      if (formData.Demographics) {
-        const demographicsData = Object.entries(formData.Demographics).map(([village, data]) => ({
-          Village: village,
-          ...((typeof data === 'object' && data !== null) ? data : {})
-        }));
-        const demographicsSheet = XLSX.utils.json_to_sheet(demographicsData);
-        XLSX.utils.book_append_sheet(workbook, demographicsSheet, 'Demographics');
+      const demographics = resolveSection(formData, 'Demographics');
+      if (demographics && typeof demographics === 'object') {
+        appendSheet(
+          Object.entries(demographics).map(([village, data]) => ({
+            Village: village,
+            ...((typeof data === 'object' && data !== null) ? data : {})
+          })),
+          'Demographics'
+        );
       }
 
       // Education worksheet
-      if (formData.Education) {
+      const education = resolveSection(formData, 'Education');
+      if (education && typeof education === 'object') {
         const educationData: any[] = [];
-        Object.entries(formData.Education).forEach(([village, schools]: [string, any]) => {
+        Object.entries(education).forEach(([village, schools]: [string, any]) => {
           if (Array.isArray(schools)) {
             schools.forEach(school => {
               educationData.push({
@@ -252,18 +306,152 @@ const Reports: React.FC = () => {
                 'Teachers (Male)': school.teachersMale,
                 'Teachers (Female)': school.teachersFemale,
                 'Total Students': school.studentsTotal,
+                'Students (Male)': school.studentsMale,
+                'Students (Female)': school.studentsFemale,
+                'New Classrooms Required': school.newClassroomsRequired,
                 'Infrastructure Status': school.infrastructureStatus
               });
             });
           }
         });
-        if (educationData.length > 0) {
-          const educationSheet = XLSX.utils.json_to_sheet(educationData);
-          XLSX.utils.book_append_sheet(workbook, educationSheet, 'Education');
+        appendSheet(educationData, 'Education');
+      }
+
+      // Health and Childcare worksheet
+      const health = resolveSection(formData, 'Health and Childcare');
+      if (health && typeof health === 'object') {
+        const typeLabels: { [key: string]: string } = {
+          phcs: 'Primary Health Centre',
+          subCentres: 'Sub-Centre',
+          anganwadiCentres: 'Anganwadi Centre',
+        };
+        const healthData: any[] = [];
+        ['phcs', 'subCentres', 'anganwadiCentres'].forEach(key => {
+          const facilities = (health as any)[key];
+          if (Array.isArray(facilities)) {
+            facilities.forEach((f: any) => healthData.push({
+              'Facility Type': typeLabels[key],
+              Name: f.name,
+              Location: f.location === 'Other' ? f.otherLocation : f.location,
+              Status: f.status,
+            }));
+          }
+        });
+        appendSheet(healthData, 'Health & Childcare');
+      }
+
+      // Migration and Employment worksheet
+      const migration = resolveSection(formData, 'Migration and Employment');
+      if (Array.isArray(migration)) {
+        appendSheet(
+          migration.map((r: any) => ({
+            Village: r.village,
+            'Households Reporting Migration': r.householdsReportingMigration,
+            'Seasonal Migrants (Male)': r.seasonalMigrantsMale,
+            'Seasonal Migrants (Female)': r.seasonalMigrantsFemale,
+            'Permanent Migrants (Male)': r.permanentMigrantsMale,
+            'Permanent Migrants (Female)': r.permanentMigrantsFemale,
+            'Landless Households': r.landlessHouseholds,
+            'Households with MGNREGS Cards': r.householdsWithMGNREGSCards,
+            'Workdays Provided under MGNREGS': r.workdaysProvidedMGNREGS,
+          })),
+          'Migration & Employment'
+        );
+      }
+
+      // Road Infrastructure worksheet
+      const roads = resolveSection(formData, 'Road Infrastructure');
+      if (Array.isArray(roads)) {
+        appendSheet(
+          roads.map((r: any) => ({
+            Village: r.village,
+            'Total CC Road (km)': r.totalCCRoad,
+            'CC Road Required (km)': r.ccRoadRequired,
+            'Repair Required (km)': r.repairRequired,
+            'Kuchha Road (km)': r.kuchhaRoad,
+          })),
+          'Road Infrastructure'
+        );
+      }
+
+      // Panchayat Finances worksheet
+      const finances = resolveSection(formData, 'Panchayat Finances');
+      if (finances && typeof finances === 'object') {
+        appendSheet(
+          [{
+            'CFC (₹)': finances.cfc,
+            'SFC (₹)': finances.sfc,
+            'Own Sources (₹)': finances.ownSources,
+            'MGNREGS (₹)': finances.mgnregs,
+            'Total (₹)':
+              (Number(finances.cfc) || 0) +
+              (Number(finances.sfc) || 0) +
+              (Number(finances.ownSources) || 0) +
+              (Number(finances.mgnregs) || 0),
+          }],
+          'Panchayat Finances'
+        );
+      }
+
+      // Land Use Mapping worksheets
+      const landUse = resolveSection(formData, 'Land Use Mapping');
+      if (landUse && typeof landUse === 'object') {
+        if (Array.isArray(landUse.landUseData)) {
+          appendSheet(
+            landUse.landUseData.map((r: any) => ({
+              Village: r.village,
+              'Total Cultivable Land (ha)': r.totalCultivableLand,
+              'Irrigated Land (ha)': r.irrigatedLand,
+              'Forest Area (ha)': r.forestArea,
+            })),
+            'Land Use'
+          );
+        }
+        if (Array.isArray(landUse.commonLandAreas)) {
+          appendSheet(
+            landUse.commonLandAreas.map((a: any) => ({
+              Location: a.location,
+              'Area (ha)': a.area,
+              Uses: a.uses,
+            })),
+            'Common Land Areas'
+          );
         }
       }
 
-      // Add other sections similarly...
+      // Water Resources worksheets
+      const water = resolveSection(formData, 'Water Resources');
+      if (water && typeof water === 'object') {
+        if (Array.isArray(water.waterBodies)) {
+          appendSheet(
+            water.waterBodies.map((b: any) => ({
+              Type: b.type === 'Others' ? b.otherType : b.type,
+              Locations: Array.isArray(b.locations) ? b.locations.join(', ') : '',
+              'Water Level': b.waterLevel,
+              Condition: b.condition,
+              'Irrigation Potential (ha)': b.irrigationPotential,
+            })),
+            'Water Bodies'
+          );
+        }
+        if (Array.isArray(water.irrigationStructures)) {
+          appendSheet(
+            water.irrigationStructures.map((s: any) => ({
+              Type: s.type === 'Others' ? s.otherType : s.type,
+              Location: s.location,
+              Status: s.status,
+              'Irrigation Potential (ha)': s.irrigationPotential,
+            })),
+            'Irrigation Structures'
+          );
+        }
+      }
+
+      if (workbook.SheetNames.length === 0) {
+        alert('No data available to export');
+        return;
+      }
+
       const fileName = `${userData.gpName}_Data_${selectedYear}.xlsx`;
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
@@ -276,28 +464,18 @@ const Reports: React.FC = () => {
 
   const calculateCompletionStatus = () => {
     if (!reportData || !reportData.formData) return 0;
-    
-    const requiredForms = [
-      'Demographics',
-      'Education',
-      'Health and Childcare',
-      'Migration and Employment',
-      'Road Infrastructure',
-      'Panchayat Finances',
-      'Land Use Mapping',
-      'Water Resources'
-    ];
-    
-    const filledForms = requiredForms.filter(form => {
-      const formData = reportData.formData[form];
-      return formData && Object.keys(formData).length > 0;
-    });
-    
+
+    const requiredForms = Object.keys(SECTION_KEYS);
+
+    const filledForms = requiredForms.filter(form =>
+      sectionHasData(resolveSection(reportData.formData, form))
+    );
+
     return Math.round((filledForms.length / requiredForms.length) * 100);
   };
 
   const renderDataSection = (title: string, icon: React.ReactNode, data: any, color: string) => {
-    if (!data || Object.keys(data).length === 0) {
+    if (!sectionHasData(data)) {
       return (
         <Card className="border-2 border-gray-200 shadow-md">
           <CardHeader className={`bg-gray-50 border-b border-gray-200`}>
@@ -432,7 +610,177 @@ const Reports: React.FC = () => {
             </div>
           )}
 
-          {/* Add similar rendering for other sections */}
+          {title === 'Health and Childcare' && typeof data === 'object' && (
+            <div className="space-y-4">
+              {[
+                { key: 'phcs', label: 'Primary Health Centres (PHCs)' },
+                { key: 'subCentres', label: 'Sub-Centres (SCs)' },
+                { key: 'anganwadiCentres', label: 'Anganwadi Centres' },
+              ].map(({ key, label }) => {
+                const facilities = Array.isArray(data[key]) ? data[key] : [];
+                if (facilities.length === 0) return null;
+                return (
+                  <div key={key} className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                    <h5 className="font-semibold mb-3 text-red-800 flex items-center gap-2">
+                      <Heart className="h-4 w-4" />
+                      {label} ({facilities.length})
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {facilities.map((f: any) => (
+                        <div key={f.id} className="bg-white p-3 rounded border text-sm">
+                          <div className="font-medium text-gray-800">{f.name || 'Unnamed'}</div>
+                          <div className="text-gray-600">
+                            Location: {f.location === 'Other' ? (f.otherLocation || 'Other') : (f.location || 'N/A')}
+                          </div>
+                          <div className="text-gray-600">Status: {f.status || 'N/A'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {title === 'Migration and Employment' && Array.isArray(data) && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-amber-100 text-amber-900">
+                    <th className="border border-amber-200 p-2 text-left">Village</th>
+                    <th className="border border-amber-200 p-2">HHs Migrating</th>
+                    <th className="border border-amber-200 p-2">Seasonal (M/F)</th>
+                    <th className="border border-amber-200 p-2">Permanent (M/F)</th>
+                    <th className="border border-amber-200 p-2">Landless HHs</th>
+                    <th className="border border-amber-200 p-2">MGNREGS Cards</th>
+                    <th className="border border-amber-200 p-2">MGNREGS Workdays</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row: any, idx: number) => (
+                    <tr key={idx} className="even:bg-amber-50">
+                      <td className="border border-amber-200 p-2 font-medium">{row.village}</td>
+                      <td className="border border-amber-200 p-2 text-center">{row.householdsReportingMigration || 0}</td>
+                      <td className="border border-amber-200 p-2 text-center">{(row.seasonalMigrantsMale || 0)} / {(row.seasonalMigrantsFemale || 0)}</td>
+                      <td className="border border-amber-200 p-2 text-center">{(row.permanentMigrantsMale || 0)} / {(row.permanentMigrantsFemale || 0)}</td>
+                      <td className="border border-amber-200 p-2 text-center">{row.landlessHouseholds || 0}</td>
+                      <td className="border border-amber-200 p-2 text-center">{row.householdsWithMGNREGSCards || 0}</td>
+                      <td className="border border-amber-200 p-2 text-center">{row.workdaysProvidedMGNREGS || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {title === 'Road Infrastructure' && Array.isArray(data) && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 text-gray-800">
+                    <th className="border border-gray-200 p-2 text-left">Village</th>
+                    <th className="border border-gray-200 p-2">Total CC Road (km)</th>
+                    <th className="border border-gray-200 p-2">CC Road Required (km)</th>
+                    <th className="border border-gray-200 p-2">Repair Required (km)</th>
+                    <th className="border border-gray-200 p-2">Kuchha Road (km)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row: any, idx: number) => (
+                    <tr key={idx} className="even:bg-gray-50">
+                      <td className="border border-gray-200 p-2 font-medium">{row.village}</td>
+                      <td className="border border-gray-200 p-2 text-center">{row.totalCCRoad || 0}</td>
+                      <td className="border border-gray-200 p-2 text-center">{row.ccRoadRequired || 0}</td>
+                      <td className="border border-gray-200 p-2 text-center">{row.repairRequired || 0}</td>
+                      <td className="border border-gray-200 p-2 text-center">{row.kuchhaRoad || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {title === 'Land Use Mapping' && typeof data === 'object' && (
+            <div className="space-y-4">
+              {Array.isArray(data.landUseData) && data.landUseData.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-emerald-100 text-emerald-900">
+                        <th className="border border-emerald-200 p-2 text-left">Village</th>
+                        <th className="border border-emerald-200 p-2">Cultivable Land (ha)</th>
+                        <th className="border border-emerald-200 p-2">Irrigated Land (ha)</th>
+                        <th className="border border-emerald-200 p-2">Forest Area (ha)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.landUseData.map((row: any, idx: number) => (
+                        <tr key={idx} className="even:bg-emerald-50">
+                          <td className="border border-emerald-200 p-2 font-medium">{row.village}</td>
+                          <td className="border border-emerald-200 p-2 text-center">{row.totalCultivableLand || 0}</td>
+                          <td className="border border-emerald-200 p-2 text-center">{row.irrigatedLand || 0}</td>
+                          <td className="border border-emerald-200 p-2 text-center">{row.forestArea || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {Array.isArray(data.commonLandAreas) && data.commonLandAreas.length > 0 && (
+                <div>
+                  <h5 className="font-semibold mb-2 text-emerald-800">Common Land Areas</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {data.commonLandAreas.map((area: any) => (
+                      <div key={area.id} className="bg-white p-3 rounded border text-sm">
+                        <div className="font-medium text-gray-800">{area.location}</div>
+                        <div className="text-gray-600">Area: {area.area || 0} ha</div>
+                        <div className="text-gray-600">Uses: {area.uses || 'N/A'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {title === 'Water Resources' && typeof data === 'object' && (
+            <div className="space-y-4">
+              {Array.isArray(data.waterBodies) && data.waterBodies.length > 0 && (
+                <div>
+                  <h5 className="font-semibold mb-2 text-cyan-800 flex items-center gap-2">
+                    <Droplets className="h-4 w-4" />
+                    Water Bodies ({data.waterBodies.length})
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {data.waterBodies.map((body: any) => (
+                      <div key={body.id} className="bg-white p-3 rounded border text-sm">
+                        <div className="font-medium text-gray-800">{body.type === 'Others' ? (body.otherType || 'Other') : body.type}</div>
+                        <div className="text-gray-600">Locations: {Array.isArray(body.locations) ? body.locations.join(', ') : 'N/A'}</div>
+                        <div className="text-gray-600">Water Level: {body.waterLevel || 'N/A'}</div>
+                        <div className="text-gray-600">Condition: {body.condition || 'N/A'}</div>
+                        <div className="text-gray-600">Irrigation Potential: {body.irrigationPotential || 0} ha</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Array.isArray(data.irrigationStructures) && data.irrigationStructures.length > 0 && (
+                <div>
+                  <h5 className="font-semibold mb-2 text-cyan-800">Irrigation Structures ({data.irrigationStructures.length})</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {data.irrigationStructures.map((s: any) => (
+                      <div key={s.id} className="bg-white p-3 rounded border text-sm">
+                        <div className="font-medium text-gray-800">{s.type === 'Others' ? (s.otherType || 'Other') : s.type}</div>
+                        <div className="text-gray-600">Location: {s.location || 'N/A'}</div>
+                        <div className="text-gray-600">Status: {s.status || 'N/A'}</div>
+                        <div className="text-gray-600">Irrigation Potential: {s.irrigationPotential || 0} ha</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -634,56 +982,56 @@ const Reports: React.FC = () => {
                 {renderDataSection(
                   'Demographics',
                   <Users className="h-5 w-5" />,
-                  reportData.formData?.Demographics,
+                  resolveSection(reportData.formData, 'Demographics'),
                   '#3b82f6'
                 )}
 
                 {renderDataSection(
                   'Education',
                   <GraduationCap className="h-5 w-5" />,
-                  reportData.formData?.Education,
+                  resolveSection(reportData.formData, 'Education'),
                   '#8b5cf6'
                 )}
 
                 {renderDataSection(
                   'Health and Childcare',
                   <Heart className="h-5 w-5" />,
-                  reportData.formData?.['Health and Childcare'],
+                  resolveSection(reportData.formData, 'Health and Childcare'),
                   '#ef4444'
                 )}
 
                 {renderDataSection(
                   'Migration and Employment',
                   <Briefcase className="h-5 w-5" />,
-                  reportData.formData?.['Migration and Employment'],
+                  resolveSection(reportData.formData, 'Migration and Employment'),
                   '#f59e0b'
                 )}
 
                 {renderDataSection(
                   'Road Infrastructure',
                   <Route className="h-5 w-5" />,
-                  reportData.formData?.['Road Infrastructure'],
+                  resolveSection(reportData.formData, 'Road Infrastructure'),
                   '#6b7280'
                 )}
 
                 {renderDataSection(
                   'Panchayat Finances',
                   <Coins className="h-5 w-5" />,
-                  reportData.formData?.['Panchayat Finances'],
+                  resolveSection(reportData.formData, 'Panchayat Finances'),
                   '#10b981'
                 )}
 
                 {renderDataSection(
                   'Land Use Mapping',
                   <Trees className="h-5 w-5" />,
-                  reportData.formData?.['Land Use Mapping'],
+                  resolveSection(reportData.formData, 'Land Use Mapping'),
                   '#059669'
                 )}
 
                 {renderDataSection(
                   'Water Resources',
                   <Droplets className="h-5 w-5" />,
-                  reportData.formData?.['Water Resources'],
+                  resolveSection(reportData.formData, 'Water Resources'),
                   '#06b6d4'
                 )}
               </div>
